@@ -19,14 +19,14 @@ services:
       - "9200:9200"
       - "9300:9300"
     environment:
-      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+      ES_JAVA_OPTS: "-Xmx1g -Xms1g"
       ELASTIC_PASSWORD: changeme
       # Use single node discovery in order to disable production mode and avoid bootstrap checks
       # see https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
       discovery.type: single-node
     networks:
       - elk
-
+     
   logstash:
     build:
       context: logstash/
@@ -70,6 +70,45 @@ services:
       - elk
     depends_on:
       - elasticsearch
+      
+  skywalking-oap:
+    image: apache/skywalking-oap-server:7.0.0-es7
+    container_name: skywalking-oap
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+    links:
+      - elasticsearch
+    restart: always
+    ports:
+      - 11800:11800
+      - 12800:12800
+    environment:
+      - SW_SW_STORAGE_ES_SSL_JKS_PATH=""
+      - SW_STORAGE=elasticsearch7
+      - SW_STORAGE_ES_CLUSTER_NODES=elasticsearch:9200
+      - SW_ES_USER=elastic
+      - SW_ES_PASSWORD=changeme
+      - "TZ=Asia/Shanghai"
+
+  skywalking-ui:
+    image: apache/skywalking-ui:7.0.0
+    container_name: skywalking-ui
+    networks:
+      - elk
+    depends_on:
+      - skywalking-oap
+    links:
+      - skywalking-oap        
+    restart: always
+    ports:
+      - 9080:8080
+    environment:
+      - "collector.ribbon.listOfServers=skywalking-oap:12800"
+      - "security.user.admin.password=admin"
+      - "TZ=Asia/Shanghai"
+
 
 networks:
   elk:
